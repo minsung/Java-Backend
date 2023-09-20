@@ -1,4 +1,4 @@
-# Thread
+# Thread #1
 ### 1. 스레드
 
 - 컴퓨터는 다수의 프로그램들이 동작하고 있음, 우리가 작성해서 실행시킨 프로그램은 그 중 하나일 뿐
@@ -129,3 +129,105 @@
   - Syncronized는 Native로 지원되는 기능이고 Lock은 라이브러리로 구현되어 있어 Syncronized가 속도 측면에서 유리하나 그 차이는 크지 않음
   - Syncronized는 무한 대기 같은 상황이 발생 할 수 있으나 Lock은 tryLcok() 메소드를 통해 일정 시간 동안만 대기하거나 하는 등의 유연한 사용이 가능
   - 상황에 맞게 두가지 방식 중 알맞은 방식으로 선택하는 것이 좋음
+
+### 5. Thread의 기타 기능
+- Thread.sleep(long timemilli)
+  - 일정시간 스레드의 동작을 멈출 때 사용
+- currentThread()
+  - 현재 실행되는 스레드의 객체를 반환
+- getId()
+  - 스레드의 ID를 반환
+- getName()
+  - 스레드의 이름을 반환
+  - setName() 메소드를 이용해 변경도 가능
+- getPriority()
+  - 스레드의 우선순위를 반환
+  - 우선순위가 높을수록 자주 실행된다
+  - setPriority() 메소드를 이용해 변경 가능
+- getState()
+  - 스레드의 상태를 반환
+- setDaemon()
+  - 데몬 스레드는 메인 스레드가 종료되면 같이 종료되는 스레드
+  - 만약 A라는 스레드가 작동하고 있는데 join()을 호출하지 않고 메인 스레드가 종료되는 상황이라면 A 스레드는 참조할 방법이 없어 종료를 할 수가 없게 됨
+  - setDaemon(true)을 통해 해결할 수 있지만 이것은 권장되는 방법은 아님
+  - 스레드는 의도하지 않은 상황에서 종료되는건 바람직하지 않은데 스레드가 작업을 완료하지 않고 종료하게 되면 발생되는 문제점들이 많기 때문일 것임
+  - 가급적 사용하지 않고 join()을 해주도록 하자
+```java
+public class ThreadExample {
+    public static void main(String[] args) {
+        Thread current = Thread.currentThread();
+
+        long id = current.getId();
+        String name = current.getName();
+        int priority = current.getPriority();
+        Thread.State state = current.getState();
+
+        System.out.println("id: " + id);
+        System.out.println("name: " + name);
+        System.out.println("priority: " + priority);
+        System.out.println("state: " + state);
+
+        current.setName("java thread");
+        current.setPriority(Thread.MAX_PRIORITY);
+    }
+}
+```
+
+### 6. Deadlock
+- 공유자원이 2개 이상인 경우 (즉 lock이 2개 이상) 문제가 발생할 수 있음
+- 예를 들어 1, 2번 공유 자원이 있고 스레드 1이 자원 1을 점유하고 있는 상태에서 자원 2를 얻으려하고
+- 스레드 2는 반대로 자원 2를 점유하고 있는 상태에서 자원 1을 얻으려하면
+- 두 스레드는 무한 대기 상태에 빠지게 되는데 이것을 데드락이라고 함
+```java
+public class DeadLock {
+    public static final Object lock1 = new Object();
+    public static final Object lock2 = new Object();
+
+    public static void main(String[] args) throws InterruptedException {
+        Thread t1 = new Thread(new MyThread1());
+        Thread t2 = new Thread(new MyThread2());
+        t1.start();
+        t2.start();
+        t1.join();
+        t2.join();
+    }
+}
+
+class MyThread1 implements Runnable {
+    @Override
+    public void run() {
+        synchronized (DeadLock.lock1) {
+            try {
+                System.out.println("MyThread1 start");
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            synchronized (DeadLock.lock2) {
+                System.out.println("MyThread1 end");
+            }
+        }
+    }
+}
+
+class MyThread2 implements Runnable {
+    @Override
+    public void run() {
+        synchronized (DeadLock.lock2) {
+            try {
+                System.out.println("MyThread2 start");
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            synchronized (DeadLock.lock1) {
+                System.out.println("MyThread2 end");
+            }
+        }
+    }
+}
+```
+- 데드락을 완벽하게 막을 수 있는 방법은 없으나
+- 설계시 두 자원의 접근을 최대한 격리하여 동시에 접근하지 않도록 주의해야 하고
+- Lock 사용시 tryLock() 등을 통해 timoout을 걸어주는 등의 노력이 필요
+- 직접 스레드를 사용하는 것보다 잘 작성된 라이브러리나 akka 같은 플랫폼을 이용하는 것도 방법
